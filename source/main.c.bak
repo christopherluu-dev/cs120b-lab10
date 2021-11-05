@@ -1,13 +1,13 @@
 /*	Author: christopherluu
  *  Partner(s) Name: 
  *	Lab Section: 22
- *	Assignment: Lab #10  Exercise #2
+ *	Assignment: Lab #10  Exercise #3
  *	Exercise Description: [optional - include for your own benefit]
  *
  *	I acknowledge all content contained herein, excluding template or example
  *	code, is my own original work.
  *
- *	Demo Video: https://youtu.be/CPxcq3YrQE0 
+ *	Demo Video: 
  */
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -17,12 +17,15 @@
 
 enum ThreeLEDStates {THREE_START, THREE_ONE, THREE_TWO, THREE_THREE} ThreeLEDState;
 enum BlinkingLEDStates {BLINK_START, BLINK_INIT, BLINK} BlinkingLEDState;
+enum SpeakerStates {SPEAKER_START, SPEAKER_ON, SPEAKER_OFF} SpeakerState;
 enum CombineLEDStates {COMBINE_START, COMBINE} CombineLEDState;
 
 unsigned char threeLEDs = 0x00;
 unsigned char blinkingLED = 0x00;
+unsigned char speaker = 0x00;
 unsigned char i = 0;
 unsigned char j = 0;
+unsigned char k = 0;
 
 volatile unsigned char TimerFlag = 0;
 
@@ -65,22 +68,13 @@ void TickThreeLEDs(){
             ThreeLEDState = THREE_ONE;
             break;
         case THREE_ONE:
-            if(i > 3){
-                ThreeLEDState = THREE_TWO;
-                i = 0;
-            }
+            ThreeLEDState = THREE_TWO;
             break;
         case THREE_TWO:
-            if(i > 3){
-                ThreeLEDState = THREE_THREE;
-                i = 0;
-            }
+            ThreeLEDState = THREE_THREE;
             break;
         case THREE_THREE:
-            if(i > 3){
-                ThreeLEDState = THREE_ONE;
-                i = 0;
-            }
+            ThreeLEDState = THREE_ONE;
             break;
         default:
             ThreeLEDState = THREE_START;
@@ -92,15 +86,12 @@ void TickThreeLEDs(){
             break;
         case THREE_ONE:
             threeLEDs = 0x01;
-            i++;
             break;
         case THREE_TWO:
             threeLEDs = 0x02;
-            i++;
             break;
         case THREE_THREE:
             threeLEDs = 0x04;
-            i++;
             break;
         default:
             break;
@@ -113,16 +104,10 @@ void TickBlinkingLEDs(){
             BlinkingLEDState = BLINK_INIT;
             break;
         case BLINK_INIT:
-            if(j > 10){
-                BlinkingLEDState = BLINK;
-                j = 0;
-            }
+            BlinkingLEDState = BLINK;
             break;
         case BLINK:
-            if(j > 10){
-                BlinkingLEDState = BLINK_INIT;
-                j = 0;
-            }
+            BlinkingLEDState = BLINK_INIT;
             break;
         default:
             BlinkingLEDState = BLINK_START;
@@ -134,11 +119,60 @@ void TickBlinkingLEDs(){
             break;
         case BLINK_INIT:
             blinkingLED = 0x00;
-            j++;
             break;
         case BLINK:
             blinkingLED = 0x01;
-            j++;
+            break;
+        default:
+            break;
+    }
+}
+
+void TickSpeaker(){
+    switch(SpeakerState){
+        case SPEAKER_START:
+            SpeakerState = SPEAKER_OFF;
+            break;
+        case SPEAKER_ON:
+            if((~PINA & 0x04) == 0x01){
+                SpeakerState = SPEAKER_ON;
+            }
+            else{
+                SpeakerState = SPEAKER_OFF;
+            }
+            break;
+        case SPEAKER_OFF:
+            if((~PINA & 0x04) == 0x01){
+                SpeakerState = SPEAKER_ON;
+            }
+            else{
+                SpeakerState = SPEAKER_OFF;
+            }
+            break;
+        default:
+            SpeakerState = SPEAKER_START;
+            break;
+    }
+
+    switch(SpeakerState){
+        case SPEAKER_START:
+            break;
+        case SPEAKER_ON:
+            if(k > 0){
+                speaker = 0;
+                k++;
+            }
+            else if(k > 2){
+                speaker = 1;
+                k++;
+            }
+            else if(k > 4){
+                k = 0;
+            }
+            break;
+        case SPEAKER_OFF:
+            speaker = 0;
+            k = 0;
             break;
         default:
             break;
@@ -162,7 +196,7 @@ void TickCombineLEDs(){
         case COMBINE_START:
             break;
         case COMBINE:
-            PORTB = threeLEDs | (blinkingLED << 3);
+            PORTB = threeLEDs | (blinkingLED << 3) | (speaker << 4);
             break;
         default:
             break;
@@ -171,20 +205,32 @@ void TickCombineLEDs(){
 
 int main(void) {
     /* Insert DDR and PORT initializations */
+    DDRA = 0x00; PORTA = 0xFF;
     DDRB = 0xFF; PORTB = 0x00;
     /* Insert your solution below */
-    TimerSet(100);
+    TimerSet(1);
     TimerOn();
 
     ThreeLEDState = THREE_START;
     BlinkingLEDState = BLINK_START;
+    SpeakerState = SPEAKER_START;
     CombineLEDState = COMBINE_START;
+
     while (1) {
-        TickThreeLEDs();
-        TickBlinkingLEDs();
+        if(i >= 300){
+            TickThreeLEDs();
+            i = 0;
+        }
+        if(j >= 1000){
+            TickBlinkingLEDs();
+            j = 0;
+        }
+        TickSpeaker();
         TickCombineLEDs();
         while(!TimerFlag){};
         TimerFlag = 0;
+        i += 1;
+        j += 1;
     }
     return 1;
 }
